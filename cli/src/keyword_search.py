@@ -10,9 +10,10 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     for movie in movies:
         preprocessed_title = tokenize_text(preprocess_text(movie['title']))
         for token in preprocessed_query:
-            if token in preprocessed_title:
-                results.append(movie)
-                break
+            for title in preprocessed_title:
+                if token in title:
+                    results.append(movie)
+                    break
         if len(results) >= limit:
             break
     return results
