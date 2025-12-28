@@ -1,3 +1,4 @@
+import string
 from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies
 
 
@@ -15,4 +16,11 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
 
 def preprocess_text(text):
     text = text.lower()
+    translation_table = str.maketrans("", "", string.punctuation)
+    text = text.translate(translation_table)
     return text
+
+def tokenize_text(text):
+    tokens = text.split()
+    for token in tokens:
+        if token == " "
