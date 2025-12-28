@@ -1,6 +1,8 @@
 import string
 from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies, load_stopwords
+from nltk.stem import PorterStemmer
 
+stemmer = PorterStemmer()
 
 def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     movies = load_movies()
@@ -10,16 +12,24 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     for token in preprocessed_query[:]:
         if token in stopwords:
             preprocessed_query.remove(token)
+    stem_tokens = []
+    for token in preprocessed_query:
+        token = stemmer.stem(token)
+        stem_tokens.append(token)    
 
     for movie in movies:
         preprocessed_title = tokenize_text(preprocess_text(movie['title']))
         for title_word in preprocessed_title[:]:  # Copy with [:]
             if title_word in stopwords:
                 preprocessed_title.remove(title_word)
+        stem_title_words = []
+        for title_word in preprocessed_title:
+            title_word = stemmer.stem(title_word)
+            stem_title_words.append(title_word)
+                                    
         
-        
-        for token in preprocessed_query:
-            for title in preprocessed_title:
+        for token in stem_tokens:
+            for title in stem_title_words:
                 if token in title:
                     results.append(movie)
                     break
