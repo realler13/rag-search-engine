@@ -25,6 +25,16 @@ class InvertedIndex:
             self.__add_document(doc_id, text)
 
     def save(self):
-        if not os.path.exists('cache'):
-            with open('cache/index.pkl', 'wb') as f:
-               pickle.dump(self.docmap, f)
+        cache_dir = 'cache'      
+        os.makedirs(cache_dir, exist_ok=True)
+        index_path = os.path.join(cache_dir, 'index.pkl')
+        with open(index_path, 'wb') as f:
+            pickle.dump(self.index, f)
+        
+        
+        docmap_path = os.path.join(cache_dir, 'docmap.pkl')
+        with open(docmap_path, 'wb') as f:
+            pickle.dump(self.docmap, f)
+        
+        print(f"Index saved to {index_path}")
+        print(f"Docmap saved to {docmap_path}")

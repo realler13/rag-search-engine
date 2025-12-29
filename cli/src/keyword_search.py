@@ -1,8 +1,20 @@
 import string
 from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies, load_stopwords
 from nltk.stem import PorterStemmer
+from src.inverted_index import InvertedIndex
 
 stemmer = PorterStemmer()
+
+def build_command():
+    movies = load_movies()  # However you load your movie data
+    
+    index = InvertedIndex()
+    index.build(movies)
+    index.save()
+    
+    # Get the first document for 'merida' and print it
+    docs = index.get_documents('merida')
+    print(f"First document for token 'merida' = {docs[0]}")
 
 def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     movies = load_movies()
