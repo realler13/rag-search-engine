@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 MOVIE_PATH = PROJECT_ROOT / "data" / "movies.json"
 STOPWORD_PATH = PROJECT_ROOT / "data" / "stopwords.txt"
@@ -27,3 +28,6 @@ def load_stopwords():
         
  
     return cleaned_list_of_stopwords
+
+
+
