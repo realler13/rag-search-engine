@@ -38,3 +38,23 @@ class InvertedIndex:
         
         print(f"Index saved to {index_path}")
         print(f"Docmap saved to {docmap_path}")
+
+    def load(self):
+        cache_dir = 'cache'
+        index_path = os.path.join(cache_dir, 'index.pkl')
+        docmap_path = os.path.join(cache_dir, 'docmap.pkl')
+         
+        if not os.path.exists(index_path):
+           raise FileNotFoundError(f"Index file not found: {index_path}")
+    
+        if not os.path.exists(docmap_path):
+            raise FileNotFoundError(f"Docmap file not found: {docmap_path}")
+
+        with open(index_path, 'rb') as f:
+            self.index = pickle.load(f)
+        
+        with open(docmap_path, 'rb') as f:
+            self.docmap = pickle.load(f)
+
+        print(f"Loaded index with {len(self.index)} tokens")
+        print(f"Loaded docmap with {len(self.docmap)} documents")

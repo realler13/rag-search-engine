@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import os
 
 
 
@@ -17,8 +18,7 @@ def load_movies() -> list[dict]:
     return data["movies"]
 
 def load_stopwords():
-    print(f"DEBUG: Looking for file at: {STOPWORD_PATH}")
-    
+        
     p = Path(STOPWORD_PATH)
     
     with open(STOPWORD_PATH, 'r') as f:

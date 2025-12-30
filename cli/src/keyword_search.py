@@ -12,45 +12,53 @@ def build_command():
     index.build(movies)
     index.save()
     
-    # Get the first document for 'merida' and print it
-    docs = index.get_documents('merida')
-    print(f"First document for token 'merida' = {docs[0]}")
-
+    
 def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
-    movies = load_movies()
     stopwords = load_stopwords()
-    results = []
+    
+    # Load the index from disk
+    index = InvertedIndex()
+    try:
+        index.load()
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Please run 'build' command first to create the index.")
+        return []
+    
+    # Preprocess and tokenize the query
     preprocessed_query = tokenize_text(preprocess_text(query))
-    for token in preprocessed_query[:]:
-        if token in stopwords:
-            preprocessed_query.remove(token)
-    stem_tokens = []
-    for token in preprocessed_query:
-        token = stemmer.stem(token)
-        stem_tokens.append(token)    
-
-    for movie in movies:
-        preprocessed_title = tokenize_text(preprocess_text(movie['title']))
-        for title_word in preprocessed_title[:]:  # Copy with [:]
-            if title_word in stopwords:
-                preprocessed_title.remove(title_word)
-        stem_title_words = []
-        for title_word in preprocessed_title:
-            title_word = stemmer.stem(title_word)
-            stem_title_words.append(title_word)
-                                    
+    
+    # Remove stopwords
+    query_tokens = [token for token in preprocessed_query if token not in stopwords]
+    
+    # Collect matching documents
+    results = []
+    seen_doc_ids = set()  # To avoid duplicates
+    
+    # Iterate over each token in the query
+    for token in query_tokens:
+        # Get document IDs that contain this token
+        doc_ids = index.get_documents(token)
         
-        for token in stem_tokens:
-            for title in stem_title_words:
-                if token in title:
-                    results.append(movie)
+        # Add each matching document to results
+        for doc_id in doc_ids:
+            if doc_id not in seen_doc_ids:
+                # Get the full document from docmap
+                document = index.docmap[doc_id]
+                results.append(document)
+                seen_doc_ids.add(doc_id)
+                
+                # Print the result
+                print(f"ID: {doc_id}, Title: {document['title']}")
+                
+                # Stop if we have enough results
+                if len(results) >= limit:
                     break
-            else:
-                continue
-            break
-
+        
+        # Break outer loop if we have enough results
         if len(results) >= limit:
             break
+    
     return results
 
 def preprocess_text(text):
