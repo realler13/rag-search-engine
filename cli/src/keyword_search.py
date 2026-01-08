@@ -1,7 +1,8 @@
 import string
 from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies, load_stopwords
 from nltk.stem import PorterStemmer
-from src.inverted_index import InvertedIndex
+import os
+import pickle
 
 stemmer = PorterStemmer()
 
@@ -31,33 +32,37 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     # Remove stopwords
     query_tokens = [token for token in preprocessed_query if token not in stopwords]
     
-    # Collect matching documents
-    results = []
-    seen_doc_ids = set()  # To avoid duplicates
+    # Stem each query token
+    stemmed_query_tokens = [stemmer.stem(token) for token in query_tokens]
     
-    # Iterate over each token in the query
-    for token in query_tokens:
-        # Get document IDs that contain this token
+    # DEBUG: Print what we're searching for
+    print(f"DEBUG: Query tokens after preprocessing: {query_tokens}")
+    print(f"DEBUG: Stemmed query tokens: {stemmed_query_tokens}")
+    
+    # Count how many query terms each document matches
+    doc_match_count = {}
+    
+    for token in stemmed_query_tokens:
         doc_ids = index.get_documents(token)
+        print(f"DEBUG: Token '{token}' found in {len(doc_ids)} documents")
         
-        # Add each matching document to results
         for doc_id in doc_ids:
-            if doc_id not in seen_doc_ids:
-                # Get the full document from docmap
-                document = index.docmap[doc_id]
-                results.append(document)
-                seen_doc_ids.add(doc_id)
-                
-                # Print the result
-                print(f"ID: {doc_id}, Title: {document['title']}")
-                
-                # Stop if we have enough results
-                if len(results) >= limit:
-                    break
-        
-        # Break outer loop if we have enough results
-        if len(results) >= limit:
-            break
+            doc_match_count[doc_id] = doc_match_count.get(doc_id, 0) + 1
+    
+    # Sort by match count (descending), then by ID (ascending)
+    sorted_docs = sorted(doc_match_count.items(), 
+                        key=lambda x: (-x[1], x[0]))
+    
+    # Take top 'limit' results
+    top_doc_ids = [doc_id for doc_id, _ in sorted_docs[:limit]]
+    
+    # Build results list
+    results = []
+    for doc_id in top_doc_ids:
+        document = index.docmap[doc_id]
+        match_count = doc_match_count[doc_id]
+        results.append(document)
+        print(f"ID: {doc_id}, Title: {document['title']} (matched {match_count} terms)")
     
     return results
 
@@ -73,3 +78,69 @@ def tokenize_text(text):
         if token == string.whitespace:
             tokens.remove(token)
     return tokens
+
+class InvertedIndex:
+    def __init__(self):
+       self.index =  {}
+       self.docmap = {}
+       self.term_frequencies = {}
+       
+    def __add_document(self, doc_id, text):
+        preprocessed = preprocess_text(text)
+        tokens = preprocessed.split()
+        
+        for token in tokens:
+            # STEM THE TOKEN DURING INDEXING!
+            stemmed_token = stemmer.stem(token)
+            
+            if stemmed_token not in self.index: # type: ignore
+                self.index[stemmed_token] = set()
+            self.index[stemmed_token].add(doc_id)
+       
+    def get_documents(self, term):
+        term = term.lower()
+        doc_ids = self.index.get(term, set())
+        return sorted(list(doc_ids))
+    
+    def build(self, movies):
+        for movie in movies:
+            doc_id = movie['id']
+            self.docmap[doc_id] = movie
+            text = f"{movie['title']} {movie['description']}"
+            self.__add_document(doc_id, text)
+
+    def save(self):
+        cache_dir = 'cache'      
+        os.makedirs(cache_dir, exist_ok=True)
+        index_path = os.path.join(cache_dir, 'index.pkl')
+        with open(index_path, 'wb') as f:
+            pickle.dump(self.index, f)
+        
+        
+        docmap_path = os.path.join(cache_dir, 'docmap.pkl')
+        with open(docmap_path, 'wb') as f:
+            pickle.dump(self.docmap, f)
+        
+        print(f"Index saved to {index_path}")
+        print(f"Docmap saved to {docmap_path}")
+
+    def load(self):
+        cache_dir = 'cache'
+        index_path = os.path.join(cache_dir, 'index.pkl')
+        docmap_path = os.path.join(cache_dir, 'docmap.pkl')
+         
+        if not os.path.exists(index_path):
+           raise FileNotFoundError(f"Index file not found: {index_path}")
+    
+        if not os.path.exists(docmap_path):
+            raise FileNotFoundError(f"Docmap file not found: {docmap_path}")
+
+        with open(index_path, 'rb') as f:
+            self.index = pickle.load(f)
+        
+        with open(docmap_path, 'rb') as f:
+            self.docmap = pickle.load(f)
+
+        print(f"Loaded index with {len(self.index)} tokens")
+        print(f"Loaded docmap with {len(self.docmap)} documents")
+
