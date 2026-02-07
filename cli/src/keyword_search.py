@@ -3,6 +3,7 @@ from .search_utils import DEFAULT_SEARCH_LIMIT, load_movies, load_stopwords
 from nltk.stem import PorterStemmer
 import os
 import pickle
+import collections
 
 stemmer = PorterStemmer()
 
@@ -66,6 +67,9 @@ def search_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
     
     return results
 
+
+
+
 def preprocess_text(text):
     text = text.lower()
     translation_table = str.maketrans("", "", string.punctuation)
@@ -84,11 +88,15 @@ class InvertedIndex:
        self.index =  {}
        self.docmap = {}
        self.term_frequencies = {}
-       
+
     def __add_document(self, doc_id, text):
         preprocessed = preprocess_text(text)
         tokens = preprocessed.split()
         
+        # Initialize a Counter for this document if it doesn't exist
+        if doc_id not in self.term_frequencies:
+            self.term_frequencies[doc_id] = collections.Counter()
+
         for token in tokens:
             # STEM THE TOKEN DURING INDEXING!
             stemmed_token = stemmer.stem(token)
@@ -96,6 +104,10 @@ class InvertedIndex:
             if stemmed_token not in self.index: # type: ignore
                 self.index[stemmed_token] = set()
             self.index[stemmed_token].add(doc_id)
+        
+        # Track term frequency for this document
+        self.term_frequencies[doc_id][stemmed_token] += 1
+
        
     def get_documents(self, term):
         term = term.lower()
@@ -121,13 +133,21 @@ class InvertedIndex:
         with open(docmap_path, 'wb') as f:
             pickle.dump(self.docmap, f)
         
+        term_frequencies_path = os.path.join(cache_dir, 'term_frequencies.pkl')
+        with open(term_frequencies_path, 'wb') as f:
+            pickle.dump(self.term_frequencies, f)
+
+
         print(f"Index saved to {index_path}")
         print(f"Docmap saved to {docmap_path}")
+        print(f"TF saved to {term_frequencies_path}")
+
 
     def load(self):
         cache_dir = 'cache'
         index_path = os.path.join(cache_dir, 'index.pkl')
         docmap_path = os.path.join(cache_dir, 'docmap.pkl')
+        term_frequencies_path = os.path.join(cache_dir, 'term_frequencies.pkl')
          
         if not os.path.exists(index_path):
            raise FileNotFoundError(f"Index file not found: {index_path}")
@@ -135,12 +155,50 @@ class InvertedIndex:
         if not os.path.exists(docmap_path):
             raise FileNotFoundError(f"Docmap file not found: {docmap_path}")
 
+        if not os.path.exists(term_frequencies_path):
+            raise FileNotFoundError(f"TF file not found: {term_frequencies_path}")
+
         with open(index_path, 'rb') as f:
             self.index = pickle.load(f)
         
         with open(docmap_path, 'rb') as f:
             self.docmap = pickle.load(f)
+        
+        with open(term_frequencies_path, 'rb') as f:
+            self.term_frequencies = pickle.load(f)
 
         print(f"Loaded index with {len(self.index)} tokens")
         print(f"Loaded docmap with {len(self.docmap)} documents")
+        print(f"Loaded TF with {len(self.term_frequencies)} documents")
 
+
+    def get_tf(self, doc_id, term):
+        # Preprocess and tokenize the term
+        preprocessed = preprocess_text(term)
+        tokens = preprocessed.split()
+        
+        # Should only be one token
+        if len(tokens) != 1:
+            raise ValueError(f"Expected exactly one token, got {len(tokens)}: {tokens}")
+        
+            # Stem the token
+        stemmed_term = stemmer.stem(tokens[0])
+        
+            # Return the frequency (0 if not found)
+        if doc_id not in self.term_frequencies:
+            return 0
+        
+        return self.term_frequencies[doc_id].get(stemmed_term, 0)
+
+def tf_command(doc_id: int, term: str) -> int:
+    # Load the index
+    index = InvertedIndex()
+    try:
+        index.load()
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Please run 'build' command first to create the index.")
+        return 0
+    
+    # Get and return the term frequency
+    return index.get_tf(doc_id, term)

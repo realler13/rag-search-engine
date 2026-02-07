@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from src.keyword_search import search_command, build_command
+from src.keyword_search import search_command, build_command, tf_command
 
 def main() -> None:
 
@@ -12,6 +12,10 @@ def main() -> None:
     search_parser.add_argument("query", type=str, help="Search query")
 
     build_parser = subparsers.add_parser("build", help="Build the inverted index")
+
+    tf_parser = subparsers.add_parser("tf", help="Get term frequency for a document")
+    tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    tf_parser.add_argument("term", type=str, help="Term to search for")
 
     args = parser.parse_args()
         
@@ -28,13 +32,12 @@ def main() -> None:
             for i, res in enumerate(results, 1):
                 print(f"{i}. ({res['id']}) {res['title']}")
         
+        case "tf":
+            frequency = tf_command(args.doc_id, args.term)
+            print(frequency)
+        
         case _:
             parser.print_help()
-        
-        
-
-
-
 
 if __name__ == "__main__":
     main()
